@@ -12,4 +12,4 @@
 
 #### The project involves developing an automated pill dispenser with the following features:
 The dispenser releases daily medication at a set time, using a piezo electric sensor to confirm if a pill was dispensed. One compartment out of the eight is for calibration. The system state, including the amount of remaining pills and dispensing logs, is stored in non-volatile memory to persist across restarts. The system status is also communicated to a server via the LoRaWan module.
-For testing purposes, the interval between dispensing is set to 30 seconds.
+For testing purposes, the interval between dispensing is set to 30 seconds. The user can interact with the device through button presses.
