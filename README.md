@@ -4,7 +4,7 @@
 ### Embedded Systems Programming course project at Metropolia University of Applied Sciences
 
 ### Main parts:
-- controller PCB: Raspberry Pi Pico on a development board
+- controller PCB: Raspberry Pi Pico on a development board, using Pico C SDK
 - dispenser: a wheel with 8 compartments, inside the base is a stepper motor and a piezo electric sensor for detecting falling pills
 - optical sensor for calibrating
 - EEPROM for storing system status
