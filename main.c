@@ -310,8 +310,7 @@ int main() {
                 }
                 turn_count++;
                 write_memory(turnCount_addr, turn_count);
-                //sleep_ms(30000); // dispense every 30 seconds
-                sleep_ms(3000); // dispense every 3 seconds
+                sleep_ms(30000); // dispense every 30 seconds
             }
             if (pill_dispense_count == 7) {
                 dispenserEmpty = true;
