@@ -28,23 +28,12 @@
 #define SW1_PIN 8
 #define SW2_PIN 7
 
-// UART - LoRaWAN
-#define UART_NR 1
-#define UART_TX_PIN 4
-#define UART_RX_PIN 5
-#define UART_BAUDRATE 9600
-#define PWM_CLKDIV 125
-#define PWM_WRAP 999
-
 // I2C - EEPROM
 #define I2C_BAUDRATE 100000
 #define DEVICE_ADDR 0x50
 #define EEPROM_SIZE 0x8000
 #define I2C1_SDA_PIN 14
 #define I2C1_SCL_PIN 15
-#define LOG_ENTRY_SIZE 64
-#define LOG_STR_SIZE 62
-#define MEMORY_ADDRESS_SIZE 2
 
 // Device state memory addresses
 uint16_t pillDispensedCount_addr = EEPROM_SIZE - 11;
@@ -94,23 +83,18 @@ void stepMotor(int step);
 void runMotor(int fraction, int average_steps);
 bool turn_motor_backwards();
 void configure_motor_pins();
+void configure_piezo();
 void configure_opto_fork();
 bool timer_callback(repeating_timer_t *rt);
 void write_memory(uint16_t memory_address, uint8_t data);
 uint8_t read_memory(uint16_t memory_address);
-uint16_t crc16(const uint8_t *data_p, size_t length);
-
-
 void uint16_write_memory(uint16_t addr, uint16_t data);
 uint16_t uint16_read_memory(uint16_t memory_address);
 
 int main() {
     configure_opto_fork(); //Initializing Optical Fork pins
+    configure_piezo(); //Initializing piezoelectric sensor
     configure_motor_pins(); //Initializing stepper motor pins
-
-    gpio_init(PIEZO_PIN);
-    gpio_set_dir(PIEZO_PIN, GPIO_IN);
-    gpio_pull_up(PIEZO_PIN);
 
     create_led(LED1_PIN);
     create_led(LED2_PIN);
@@ -142,10 +126,8 @@ int main() {
     gpio_set_function(I2C1_SDA_PIN, GPIO_FUNC_I2C);
     gpio_set_function(I2C1_SCL_PIN, GPIO_FUNC_I2C);
     sleep_ms(5000);
-
-    //Logging "Boot" to server
+    
     printf("Booting\n");
-    // todo: log to server
 
     // Reading device states from memory
     isCalibrated.state = read_memory(isCalibrated_addr);
@@ -158,14 +140,14 @@ int main() {
     printf("Turning stat is %d, negated is %d\n", isTurning.state, isTurning.not_state);
     printf("Calibrated stat is %d, negated is %d\n", isCalibrated.state, isCalibrated.not_state);
     if(isCalibrated.state == isCalibrated.not_state) {
-        printf("Stored calibrated state is invalid. Setting it for recalibrating.\n"); // todo: log to server
+        printf("Stored calibrated state is invalid. Setting it for recalibrating.\n");
         isCalibrated.state = 0;
         isCalibrated.not_state = 1;
         write_memory(isCalibrated_addr, 0);
         write_memory(isCalibrated_addr_inverted, 1);
     }
     if(isTurning.state == isTurning.not_state) {
-        printf("Stored turning state is invalid. Setting it to default.\n"); // todo: log to server
+        printf("Stored turning state is invalid. Setting it to default.\n");
         isTurning.state = 0;
         isTurning.not_state = 1;
         write_memory(isTurning_addr_inverted, 1);
@@ -181,8 +163,10 @@ int main() {
 
 
     while (1){
+
+        // Check if device was powered off while turning
         if (isTurning.state == 1) {
-            printf("Device powered off while turning. Turning back to starting point.\n"); // todo: log to server
+            printf("Device powered off while turning. Turning back to starting point.\n");
             if (turn_motor_backwards()) {
                 printf("Dispenser turned back to starting point.\n");
                 turn_count = 0;
@@ -193,7 +177,7 @@ int main() {
                 write_memory(turnCount_addr, turn_count);
             }
             if (ave_steps < 4090) {
-                printf("Average step count is invalid. Need to recalibrate.\n"); // todo: log to server
+                printf("Average step count is invalid. Need to recalibrate.\n");
                 isCalibrated.state = 0;
                 isCalibrated.not_state = 1;
                 write_memory(isCalibrated_addr, 0);
@@ -268,10 +252,10 @@ int main() {
 
                 // Calculate average steps per revolution
                 ave_steps = (measurements[0] + measurements[1] + measurements[2]) / 3;
-                printf("Average steps: %d\n", ave_steps); // todo: log to server
+                printf("Average steps: %d\n", ave_steps);
                 uint16_write_memory(averageSteps_addr, ave_steps);
 
-                isCalibrated.state = 1; // todo: log to server
+                isCalibrated.state = 1;
                 isCalibrated.not_state = 0;
                 write_memory(isCalibrated_addr, 1);
                 write_memory(isCalibrated_addr_inverted, 0);
@@ -313,7 +297,7 @@ int main() {
                     pill_dispense_count++;
                     write_memory(pillDispensedCount_addr, pill_dispense_count);
                     pillDispensed = false;
-                    printf("Pill dispensed\n"); // todo: log to server
+                    printf("Pill dispensed\n");
                 } else if (pillDispensed == false) {
                     // Blink LED 1 five times if no dispense detected
                     for (int i = 0; i <= 5; i++) {
@@ -322,18 +306,18 @@ int main() {
                         adjust_bright(LED1_PIN, 0);
                         sleep_ms(100);
                     }
-                    printf("No dispense detected\n"); // todo: log to server
+                    printf("No dispense detected\n");
                 }
                 turn_count++;
                 write_memory(turnCount_addr, turn_count);
                 //sleep_ms(30000); // dispense every 30 seconds
-                sleep_ms(3000); // dispense every 30 seconds
+                sleep_ms(3000); // dispense every 3 seconds
             }
             if (pill_dispense_count == 7) {
-                dispenserEmpty = true; // todo: log to server
+                dispenserEmpty = true;
                 printf("Dispenser is empty.\n");
             }
-            printf("Number of pills dispensed: %d\n", pill_dispense_count); // todo: log to server
+            printf("Number of pills dispensed: %d\n", pill_dispense_count);
 
             pill_dispense_count = 0;
             write_memory(pillDispensedCount_addr, pill_dispense_count);
@@ -361,7 +345,7 @@ int main() {
             step_count = 0;
             optoforkTriggered = false;
             pillDispensed = false;
-            printf("Memory and globals are cleared!\n"); // todo: log to server
+            printf("Memory and globals are cleared!\n");
 
         }
     }
@@ -431,6 +415,12 @@ void configure_opto_fork() {
     gpio_init(OPTOFORK_PIN);
     gpio_set_dir(OPTOFORK_PIN, GPIO_IN);
     gpio_pull_up(OPTOFORK_PIN);
+}
+
+void configure_piezo() {
+    gpio_init(PIEZO_PIN);
+    gpio_set_dir(PIEZO_PIN, GPIO_IN);
+    gpio_pull_up(PIEZO_PIN);
 }
 
 void stepMotor(int step) {
@@ -522,3 +512,4 @@ uint16_t uint16_read_memory(uint16_t memory_address) {
     returnValue += value[1];
     return returnValue;
 }
+
